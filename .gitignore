@@ -23,6 +23,7 @@ xcuserdata/
 # Build products and signing material
 DerivedData/
 build/
+.build/
 *.app
 *.dext
 *.xcarchive

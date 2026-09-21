@@ -11,3 +11,10 @@
 // approach in your own projects—it's only useful for sample code projects because
 // they are frequently downloaded and don't have a development team set.
 SAMPLE_CODE_DISAMBIGUATOR=${DEVELOPMENT_TEAM}
+
+// Public defaults. Release automation overrides these values from GitHub
+// Actions secrets, so distribution identifiers never need to be committed.
+APP_BUNDLE_IDENTIFIER = com.example.Lekuo82599App
+DRIVER_BUNDLE_IDENTIFIER = com.example.Lekuo82599Driver
+APP_PROVISIONING_PROFILE_SPECIFIER =
+DRIVER_PROVISIONING_PROFILE_SPECIFIER =

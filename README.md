@@ -55,6 +55,19 @@ Open `Lekuo82599.xcodeproj`, select the `Lekuo82599App` scheme, and build for
 macOS. Activation uses Apple's System Extensions API and normally requires
 explicit approval in System Settings.
 
+## Releases
+
+Release versions use calendar tags such as `2026.01.02`. The intended user
+download is a signed and notarized DMG containing the host app and its embedded
+driver extension. The app must be copied to Applications before it requests
+driver activation.
+
+The source build and signed release workflows are in `.github/workflows`.
+Signed releases require Apple distribution approval and repository secrets;
+see [DISTRIBUTION.md](DISTRIBUTION.md). Certificates, private keys,
+provisioning profiles, Apple identifiers, and personal email addresses must
+never be committed.
+
 ## Jumbo frames
 
 The driver reports an MTU range of 1280–9000. Jumbo traffic works only when

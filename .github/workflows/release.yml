@@ -1,0 +1,311 @@
+name: Signed release
+
+on:
+  push:
+    tags:
+      - "[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9]"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Sign, notarize, and publish
+    runs-on: xcode-27
+    environment: release
+    env:
+      APP_BUNDLE_ID: ${{ secrets.APP_BUNDLE_ID }}
+      DRIVER_BUNDLE_ID: ${{ secrets.DRIVER_BUNDLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      SIGNING_CERTIFICATE_P12_BASE64: ${{ secrets.SIGNING_CERTIFICATE_P12_BASE64 }}
+      SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
+      APP_PROVISIONING_PROFILE_BASE64: ${{ secrets.APP_PROVISIONING_PROFILE_BASE64 }}
+      DRIVER_PROVISIONING_PROFILE_BASE64: ${{ secrets.DRIVER_PROVISIONING_PROFILE_BASE64 }}
+      NOTARY_KEY_P8_BASE64: ${{ secrets.NOTARY_KEY_P8_BASE64 }}
+      NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+      NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag and source privacy
+        run: |
+          set -euo pipefail
+          python3 scripts/validate_release_tag.py "$GITHUB_REF_NAME"
+          python3 scripts/check_public_source.py
+
+      - name: Validate release secrets
+        run: |
+          set -euo pipefail
+          for name in \
+            APP_BUNDLE_ID DRIVER_BUNDLE_ID APPLE_TEAM_ID \
+            SIGNING_CERTIFICATE_P12_BASE64 SIGNING_CERTIFICATE_PASSWORD \
+            APP_PROVISIONING_PROFILE_BASE64 DRIVER_PROVISIONING_PROFILE_BASE64 \
+            NOTARY_KEY_P8_BASE64 NOTARY_KEY_ID NOTARY_ISSUER_ID
+          do
+            test -n "${!name:-}" || { echo "Missing required release secret: $name" >&2; exit 1; }
+          done
+          [[ "$APP_BUNDLE_ID" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$DRIVER_BUNDLE_ID" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$APPLE_TEAM_ID" =~ ^[A-Z0-9]+$ ]]
+          test "$APP_BUNDLE_ID" != "$DRIVER_BUNDLE_ID"
+
+      - name: Install signing assets
+        id: signing
+        run: |
+          set -euo pipefail
+          keychain="$RUNNER_TEMP/release-signing.keychain-db"
+          keychain_password="$(openssl rand -base64 32)"
+          certificate="$RUNNER_TEMP/developer-id.p12"
+          app_profile="$RUNNER_TEMP/app.provisionprofile"
+          driver_profile="$RUNNER_TEMP/driver.provisionprofile"
+          notary_key="$RUNNER_TEMP/AuthKey.p8"
+
+          python3 - "$certificate" "$app_profile" "$driver_profile" "$notary_key" <<'PY'
+          import base64, os, pathlib, sys
+          names = (
+              "SIGNING_CERTIFICATE_P12_BASE64",
+              "APP_PROVISIONING_PROFILE_BASE64",
+              "DRIVER_PROVISIONING_PROFILE_BASE64",
+              "NOTARY_KEY_P8_BASE64",
+          )
+          for name, destination in zip(names, sys.argv[1:]):
+              encoded = "".join(os.environ[name].split())
+              pathlib.Path(destination).write_bytes(base64.b64decode(encoded, validate=True))
+          PY
+
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$certificate" \
+            -P "$SIGNING_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$keychain"
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain"
+
+          identity_line="$(security find-identity -v -p codesigning "$keychain" | grep 'Developer ID Application:' | head -1)"
+          identity_hash="$(printf '%s' "$identity_line" | awk '{print $2}')"
+          identity_name="$(printf '%s' "$identity_line" | sed -E 's/^[^"]*"([^"]+)".*/\1/')"
+          test -n "$identity_hash"
+          test -n "$identity_name"
+          echo "::add-mask::$identity_hash"
+          echo "::add-mask::$identity_name"
+
+          profiles="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$profiles"
+          for kind in app driver; do
+            source="$RUNNER_TEMP/$kind.provisionprofile"
+            decoded="$RUNNER_TEMP/$kind-profile.plist"
+            security cms -D -i "$source" > "$decoded"
+            uuid="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$decoded")"
+            profile_name="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$decoded")"
+            echo "::add-mask::$uuid"
+            echo "::add-mask::$profile_name"
+            cp "$source" "$profiles/$uuid.provisionprofile"
+            echo "${kind}_profile_uuid=$uuid" >> "$GITHUB_OUTPUT"
+          done
+          echo "identity=$identity_hash" >> "$GITHUB_OUTPUT"
+          echo "notary_key=$notary_key" >> "$GITHUB_OUTPUT"
+
+      - name: Verify provisioning profiles
+        env:
+          APP_PROFILE_UUID: ${{ steps.signing.outputs.app_profile_uuid }}
+          DRIVER_PROFILE_UUID: ${{ steps.signing.outputs.driver_profile_uuid }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, pathlib, plistlib, subprocess
+
+          profile_dir = pathlib.Path.home() / "Library/Developer/Xcode/UserData/Provisioning Profiles"
+          checks = (
+              (os.environ["APP_PROFILE_UUID"], os.environ["APP_BUNDLE_ID"], "app"),
+              (os.environ["DRIVER_PROFILE_UUID"], os.environ["DRIVER_BUNDLE_ID"], "driver"),
+          )
+          for uuid, bundle_id, kind in checks:
+              path = profile_dir / f"{uuid}.provisionprofile"
+              data = subprocess.check_output(["security", "cms", "-D", "-i", str(path)])
+              profile = plistlib.loads(data)
+              entitlements = profile.get("Entitlements", {})
+              app_id = entitlements.get("application-identifier", "")
+              if not app_id.endswith("." + bundle_id):
+                  raise SystemExit("A provisioning profile does not match its bundle identifier")
+              if profile.get("ProvisionsAllDevices") is not True:
+                  raise SystemExit("Release requires Developer ID distribution profiles")
+              if os.environ["APPLE_TEAM_ID"] not in profile.get("TeamIdentifier", []):
+                  raise SystemExit("A provisioning profile belongs to a different Apple team")
+              if kind == "app" and entitlements.get("com.apple.developer.system-extension.install") is not True:
+                  raise SystemExit("The app profile lacks the system-extension entitlement")
+              if kind == "driver":
+                  required = (
+                      "com.apple.developer.driverkit",
+                      "com.apple.developer.driverkit.family.networking",
+                      "com.apple.developer.driverkit.transport.pci",
+                  )
+                  if any(not entitlements.get(key) for key in required):
+                      raise SystemExit("The driver profile lacks a required DriverKit entitlement")
+          PY
+
+      - name: Configure private release product name
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, pathlib
+
+          project = pathlib.Path("Lekuo82599.xcodeproj/project.pbxproj")
+          source = project.read_text()
+          product_placeholder = "path = com.example.Lekuo82599Driver.dext;"
+          product_name = f'path = "{os.environ["DRIVER_BUNDLE_ID"]}.dext";'
+          if source.count(product_placeholder) != 1:
+              raise SystemExit("Expected one public driver product placeholder")
+          project.write_text(source.replace(product_placeholder, product_name))
+
+          configuration = pathlib.Path("Configuration/SampleCode.xcconfig")
+          source = configuration.read_text()
+          replacements = {
+              "APP_BUNDLE_IDENTIFIER = com.example.Lekuo82599App":
+                  f'APP_BUNDLE_IDENTIFIER = {os.environ["APP_BUNDLE_ID"]}',
+              "DRIVER_BUNDLE_IDENTIFIER = com.example.Lekuo82599Driver":
+                  f'DRIVER_BUNDLE_IDENTIFIER = {os.environ["DRIVER_BUNDLE_ID"]}',
+          }
+          for placeholder, value in replacements.items():
+              if source.count(placeholder) != 1:
+                  raise SystemExit("Expected one public bundle identifier placeholder")
+              source = source.replace(placeholder, value)
+          configuration.write_text(source)
+          PY
+
+      - name: Archive signed app and driver
+        env:
+          APP_PROFILE_UUID: ${{ steps.signing.outputs.app_profile_uuid }}
+          DRIVER_PROFILE_UUID: ${{ steps.signing.outputs.driver_profile_uuid }}
+          SIGNING_IDENTITY: ${{ steps.signing.outputs.identity }}
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/Lekuo82599.xcarchive"
+          xcodebuild \
+            -project Lekuo82599.xcodeproj \
+            -scheme Lekuo82599App \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -archivePath "$archive" \
+            APP_PROVISIONING_PROFILE_SPECIFIER="$APP_PROFILE_UUID" \
+            DRIVER_PROVISIONING_PROFILE_SPECIFIER="$DRIVER_PROFILE_UUID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="$SIGNING_IDENTITY" \
+            ENABLE_HARDENED_RUNTIME=YES \
+            OTHER_CODE_SIGN_FLAGS='--timestamp' \
+            MARKETING_VERSION="$GITHUB_REF_NAME" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            archive
+
+      - name: Verify signatures and entitlements
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/Lekuo82599.xcarchive/Products/Applications/Lekuo82599App.app"
+          driver="$app/Contents/Library/SystemExtensions/$DRIVER_BUNDLE_ID.dext"
+          test -d "$driver"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign --verify --strict --verbose=2 "$driver"
+          codesign -d --entitlements :- "$app" > "$RUNNER_TEMP/app-entitlements.plist"
+          codesign -d --entitlements :- "$driver" > "$RUNNER_TEMP/driver-entitlements.plist"
+          /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.system-extension.install' \
+            "$RUNNER_TEMP/app-entitlements.plist" | grep -qx true
+          /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.driverkit' \
+            "$RUNNER_TEMP/driver-entitlements.plist" | grep -qx true
+          /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.driverkit.family.networking' \
+            "$RUNNER_TEMP/driver-entitlements.plist" | grep -qx true
+          /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.driverkit.transport.pci' \
+            "$RUNNER_TEMP/driver-entitlements.plist" >/dev/null
+          if /usr/libexec/PlistBuddy -c 'Print :com.apple.security.get-task-allow' \
+            "$RUNNER_TEMP/app-entitlements.plist" >/dev/null 2>&1
+          then
+            echo "Release app contains the development debugger entitlement" >&2
+            exit 1
+          fi
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")" = "$APP_BUNDLE_ID"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$driver/Info.plist")" = "$DRIVER_BUNDLE_ID"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :LekuoDriverBundleIdentifier' "$app/Contents/Info.plist")" = "$DRIVER_BUNDLE_ID"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")" = "$GITHUB_REF_NAME"
+          test -f "$app/Contents/embedded.provisionprofile"
+          test -f "$driver/embedded.provisionprofile"
+
+      - name: Notarize app
+        env:
+          NOTARY_KEY: ${{ steps.signing.outputs.notary_key }}
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/Lekuo82599.xcarchive/Products/Applications/Lekuo82599App.app"
+          ditto -c -k --keepParent "$app" "$RUNNER_TEMP/Lekuo82599App.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/Lekuo82599App.zip" \
+            --key "$NOTARY_KEY" \
+            --key-id "$NOTARY_KEY_ID" \
+            --issuer "$NOTARY_ISSUER_ID" \
+            --wait
+          xcrun stapler staple "$app"
+          xcrun stapler validate "$app"
+          if ! spctl --assess --type execute "$app" >/dev/null 2>&1
+          then
+            echo "Gatekeeper rejected the notarized app" >&2
+            exit 1
+          fi
+
+      - name: Build and notarize DMG
+        id: package
+        env:
+          NOTARY_KEY: ${{ steps.signing.outputs.notary_key }}
+          SIGNING_IDENTITY: ${{ steps.signing.outputs.identity }}
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/Lekuo82599.xcarchive/Products/Applications/Lekuo82599App.app"
+          staging="$RUNNER_TEMP/dmg-root"
+          artifact="Lekuo82599-$GITHUB_REF_NAME.dmg"
+          mkdir -p "$staging"
+          ditto "$app" "$staging/Lekuo82599App.app"
+          ln -s /Applications "$staging/Applications"
+          hdiutil create \
+            -volname "Lekuo 82599 $GITHUB_REF_NAME" \
+            -srcfolder "$staging" \
+            -ov -format UDZO \
+            "$RUNNER_TEMP/$artifact"
+          codesign --force --timestamp \
+            --sign "$SIGNING_IDENTITY" \
+            "$RUNNER_TEMP/$artifact"
+          xcrun notarytool submit "$RUNNER_TEMP/$artifact" \
+            --key "$NOTARY_KEY" \
+            --key-id "$NOTARY_KEY_ID" \
+            --issuer "$NOTARY_ISSUER_ID" \
+            --wait
+          xcrun stapler staple "$RUNNER_TEMP/$artifact"
+          xcrun stapler validate "$RUNNER_TEMP/$artifact"
+          if ! spctl --assess --type open --context context:primary-signature \
+            "$RUNNER_TEMP/$artifact" >/dev/null 2>&1
+          then
+            echo "Gatekeeper assessment failed" >&2
+            exit 1
+          fi
+          shasum -a 256 "$RUNNER_TEMP/$artifact" > "$RUNNER_TEMP/$artifact.sha256"
+          echo "artifact=$artifact" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT: ${{ steps.package.outputs.artifact }}
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" \
+            "$RUNNER_TEMP/$ARTIFACT" \
+            "$RUNNER_TEMP/$ARTIFACT.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes

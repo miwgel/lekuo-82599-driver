@@ -142,7 +142,15 @@ class DriverLoadingViewModel: NSObject {
     // Your dext may not start in unloaded state every time. Add logic or states to check this.
     @Published private var state: DriverLoadingStateMachine.State = .unloaded
 
-    private let dextIdentifier: String = "com.example.Lekuo82599Driver"
+    private lazy var dextIdentifier: String = {
+        guard let identifier = Bundle.main.object(
+            forInfoDictionaryKey: "LekuoDriverBundleIdentifier"
+        ) as? String,
+        !identifier.isEmpty else {
+            preconditionFailure("LekuoDriverBundleIdentifier is missing from Info.plist")
+        }
+        return identifier
+    }()
     private var pendingOperation: PendingOperation = .activation
 
     public var canSubmitRequest: Bool {

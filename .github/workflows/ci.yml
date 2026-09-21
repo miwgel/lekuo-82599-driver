@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Privacy check and unsigned build
+    runs-on: xcode-27
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check source for private data
+        run: python3 scripts/check_public_source.py
+
+      - name: Build app and embedded driver
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project Lekuo82599.xcodeproj \
+            -scheme Lekuo82599App \
+            -configuration Release \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Verify embedded driver
+        run: |
+          set -euo pipefail
+          app="/tmp/Lekuo82599/Release/Lekuo82599App.app"
+          test -x "$app/Contents/MacOS/Lekuo82599App"
+          test -d "$app/Contents/Library/SystemExtensions/com.example.Lekuo82599Driver.dext"
