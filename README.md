@@ -55,6 +55,22 @@ Open `Lekuo82599.xcodeproj`, select the `Lekuo82599App` scheme, and build for
 macOS. Activation uses Apple's System Extensions API and normally requires
 explicit approval in System Settings.
 
+## Lekuo Control
+
+The companion app provides native driver installation and removal, observed
+extension status, ownership-verified adapter discovery, live interface counters,
+and packet-size configuration. Standard (1500), jumbo (9000), and custom MTUs
+use a 45-second trial with an independently running rollback watchdog. A larger
+MTU requires a successful interface-bound peer test before it can be kept.
+
+Diagnostics are previewed before export and contain an allowlist of versions,
+packet sizes, link state, and counters. Addresses, serials, signing identifiers,
+interface names, filesystem paths, and raw logs are excluded.
+
+See [CONTROL.md](CONTROL.md) for configuration behavior, permissions, verification,
+and limitations. Hardware offloads and performance profiles are future driver
+work and are not exposed as working controls.
+
 ## Releases
 
 Release versions use calendar tags such as `2026.01.02`. The intended user
@@ -84,5 +100,7 @@ records, and machine-specific automation are deliberately excluded.
 ## Safety and reporting
 
 Read [SECURITY.md](SECURITY.md) before testing or redistributing the driver.
-This repository contains source only. It does not contain a signed driver,
-Apple provisioning material, or installation automation.
+This repository contains source only. It does not contain a signed driver or
+Apple provisioning material. The app embeds a signed packet-size watchdog;
+building or opening the app never automatically activates the driver or changes
+network settings.

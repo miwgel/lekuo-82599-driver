@@ -13,5 +13,7 @@ struct Lekuo82599App: App {
         WindowGroup {
             DriverLoadingView()
         }
+        .defaultSize(width: 880, height: 760)
+        .windowResizability(.contentMinSize)
     }
 }

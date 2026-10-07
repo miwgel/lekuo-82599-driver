@@ -24,6 +24,8 @@ xcuserdata/
 DerivedData/
 build/
 .build/
+__pycache__/
+*.pyc
 *.app
 *.dext
 *.xcarchive
@@ -33,6 +35,8 @@ build/
 *.cer
 *.key
 *.pem
+*.dmg
+*.dmg.sha256
 
 # Private local evidence and automation
 evidence/

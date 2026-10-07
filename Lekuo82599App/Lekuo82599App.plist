@@ -11,7 +11,9 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>$(PRODUCT_NAME)</string>
+	<string>Lekuo Control</string>
+	<key>CFBundleDisplayName</key>
+	<string>Lekuo Control</string>
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
@@ -20,6 +22,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LekuoDriverBundleIdentifier</key>
 	<string>$(DRIVER_BUNDLE_IDENTIFIER)</string>
+	<key>LekuoBuildKind</key>
+	<string>$(LEKUO_BUILD_KIND)</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 </dict>

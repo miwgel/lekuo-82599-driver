@@ -135,7 +135,7 @@ jobs:
               data = subprocess.check_output(["security", "cms", "-D", "-i", str(path)])
               profile = plistlib.loads(data)
               entitlements = profile.get("Entitlements", {})
-              app_id = entitlements.get("application-identifier", "")
+              app_id = entitlements.get("com.apple.application-identifier") or entitlements.get("application-identifier", "")
               if not app_id.endswith("." + bundle_id):
                   raise SystemExit("A provisioning profile does not match its bundle identifier")
               if profile.get("ProvisionsAllDevices") is not True:
@@ -205,6 +205,7 @@ jobs:
             ENABLE_HARDENED_RUNTIME=YES \
             OTHER_CODE_SIGN_FLAGS='--timestamp' \
             MARKETING_VERSION="$GITHUB_REF_NAME" \
+            LEKUO_BUILD_KIND=Release \
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
             archive
 
@@ -216,6 +217,7 @@ jobs:
           test -d "$driver"
           codesign --verify --deep --strict --verbose=2 "$app"
           codesign --verify --strict --verbose=2 "$driver"
+          codesign --verify --strict --verbose=2 "$app/Contents/Helpers/LekuoMTUWatchdog"
           codesign -d --entitlements :- "$app" > "$RUNNER_TEMP/app-entitlements.plist"
           codesign -d --entitlements :- "$driver" > "$RUNNER_TEMP/driver-entitlements.plist"
           /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.system-extension.install' \

@@ -19,6 +19,10 @@
 		C4C566F0262A809000C9E16B /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C4C566EA262A809000C9E16B /* Preview Assets.xcassets */; };
 		C4C566F1262A809000C9E16B /* Lekuo82599App.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C566EB262A809000C9E16B /* Lekuo82599App.swift */; };
 		C4C5670C262A8FFC00C9E16B /* com.example.apple-samplecode.Lekuo82599.dext in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = C449272525E6F3A400D24755 /* com.example.apple-samplecode.Lekuo82599.dext */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		CB0100000000000000000001 /* AdapterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB0100000000000000000011 /* AdapterService.swift */; };
+		CB0100000000000000000002 /* MTUConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB0100000000000000000012 /* MTUConfiguration.swift */; };
+		CB0100000000000000000003 /* mtu_protocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB0100000000000000000013 /* mtu_protocol.swift */; };
+		CB0100000000000000000004 /* DiagnosticReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB0100000000000000000014 /* DiagnosticReport.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -66,6 +70,10 @@
 		C4C566EB262A809000C9E16B /* Lekuo82599App.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Lekuo82599App.swift; path = Lekuo82599App/Lekuo82599App.swift; sourceTree = "<group>"; };
 		CA69F5B62FF8EDC0416B65E2 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		FDDF7EFCA1483A09E8BFE7BE /* SampleCode.xcconfig */ = {isa = PBXFileReference; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
+		CB0100000000000000000011 /* AdapterService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AdapterService.swift; path = Lekuo82599App/AdapterService.swift; sourceTree = "<group>"; };
+		CB0100000000000000000012 /* MTUConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MTUConfiguration.swift; path = Lekuo82599App/MTUConfiguration.swift; sourceTree = "<group>"; };
+		CB0100000000000000000013 /* mtu_protocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = mtu_protocol.swift; path = tools/mtu_protocol.swift; sourceTree = "<group>"; };
+		CB0100000000000000000014 /* DiagnosticReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DiagnosticReport.swift; path = Lekuo82599App/DiagnosticReport.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -162,6 +170,10 @@
 			children = (
 				C4C566E4262A809000C9E16B /* DriverLoadingView.swift */,
 				C4C566E7262A809000C9E16B /* DriverLoadingViewModel.swift */,
+				CB0100000000000000000011 /* AdapterService.swift */,
+				CB0100000000000000000012 /* MTUConfiguration.swift */,
+				CB0100000000000000000013 /* mtu_protocol.swift */,
+				CB0100000000000000000014 /* DiagnosticReport.swift */,
 				C4C566E8262A809000C9E16B /* Lekuo82599App.plist */,
 				C4C566E5262A809000C9E16B /* Lekuo82599App.entitlements */,
 				C4C566EB262A809000C9E16B /* Lekuo82599App.swift */,
@@ -219,6 +231,7 @@
 				C4C566A5262A7D8200C9E16B /* Sources */,
 				C4C566A6262A7D8200C9E16B /* Frameworks */,
 				C4C566A7262A7D8200C9E16B /* Resources */,
+				CB0100000000000000000020 /* Build MTU Watchdog */,
 				C4C56708262A865D00C9E16B /* Embed System Extensions */,
 			);
 			buildRules = (
@@ -289,6 +302,24 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		CB0100000000000000000020 /* Build MTU Watchdog */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = (
+				"$(SRCROOT)/scripts/build_mtu_watchdog.sh",
+				"$(SRCROOT)/tools/mtu_protocol.swift",
+				"$(SRCROOT)/tools/mtu_watchdog.swift",
+			);
+			name = "Build MTU Watchdog";
+			outputPaths = ("$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/LekuoMTUWatchdog",);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "/bin/bash \"$SRCROOT/scripts/build_mtu_watchdog.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		C449272125E6F3A400D24755 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -306,6 +337,10 @@
 				C4C566EC262A809000C9E16B /* DriverLoadingView.swift in Sources */,
 				C4C566F1262A809000C9E16B /* Lekuo82599App.swift in Sources */,
 				C4C566EE262A809000C9E16B /* DriverLoadingViewModel.swift in Sources */,
+				CB0100000000000000000001 /* AdapterService.swift in Sources */,
+				CB0100000000000000000002 /* MTUConfiguration.swift in Sources */,
+				CB0100000000000000000003 /* mtu_protocol.swift in Sources */,
+				CB0100000000000000000004 /* DiagnosticReport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -382,7 +417,6 @@
 				OTHER_CFLAGS = "-DDEVELOPMENT=1";
 				SDKROOT = driverkit;
 				SWIFT_STRICT_CONCURRENCY = complete;
-				SYMROOT = "/tmp/${PROJECT_NAME}";
 			};
 			name = Debug;
 		};
@@ -441,7 +475,6 @@
 				OTHER_CFLAGS = "";
 				SDKROOT = driverkit;
 				SWIFT_STRICT_CONCURRENCY = complete;
-				SYMROOT = "/tmp/${PROJECT_NAME}";
 			};
 			name = Release;
 		};
@@ -454,7 +487,7 @@
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 16;
 				DEVELOPMENT_TEAM = "";
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
@@ -479,7 +512,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 16;
 				DEVELOPMENT_TEAM = "";
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
@@ -513,7 +546,7 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Lekuo82599App/Lekuo82599App.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -548,7 +581,7 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Lekuo82599App/Lekuo82599App.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
