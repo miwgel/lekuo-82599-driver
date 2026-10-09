@@ -24,6 +24,8 @@
 	<string>$(DRIVER_BUNDLE_IDENTIFIER)</string>
 	<key>LekuoBuildKind</key>
 	<string>$(LEKUO_BUILD_KIND)</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 </dict>

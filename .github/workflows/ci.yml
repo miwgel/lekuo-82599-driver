@@ -6,6 +6,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -13,11 +17,13 @@ jobs:
   build:
     name: Fixtures, privacy check, and unsigned build
     runs-on: xcode-27
+    timeout-minutes: 30
     steps:
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Check source for private data
         run: python3 scripts/check_public_source.py
@@ -39,7 +45,7 @@ jobs:
       - name: Verify embedded driver
         run: |
           set -euo pipefail
-          app="$RUNNER_TEMP/DerivedData/Build/Products/Release/Lekuo82599App.app"
-          test -x "$app/Contents/MacOS/Lekuo82599App"
+          app="$RUNNER_TEMP/DerivedData/Build/Products/Release/Lekuo Control.app"
+          test -x "$app/Contents/MacOS/Lekuo Control"
           test -d "$app/Contents/Library/SystemExtensions/com.example.Lekuo82599Driver.dext"
           test -x "$app/Contents/Helpers/LekuoMTUWatchdog"

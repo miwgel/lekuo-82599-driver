@@ -30,3 +30,28 @@ workloads remain dominated by filesystem, protocol, and per-file overhead.
 
 Raw evidence is excluded because it contains local network identifiers and
 storage topology details.
+
+## Receive-path investigation
+
+Later three-second `iperf3` measurements used the NAS's dedicated test service:
+
+| Direction / path | TCP throughput | Sender retransmissions |
+|---|---:|---:|
+| Mac → NAS guest | 9.897 Gb/s | 0 |
+| NAS guest → Mac | 9.633 Gb/s | 10,946 |
+| NAS guest → Mac, socket pacing enabled | 6.953 Gb/s | 0 |
+| Physical host → Mac, direct IPv6 control | 9.876 Gb/s | 2 |
+
+The high-throughput reverse guest run also had substantial retransmissions.
+Captures at the guest tap and physical server NIC, combined with transmit-queue
+tracing and receiver SACK/DSACK evidence, localized packet reordering to the
+server's guest-to-physical-NIC transmit path. Newer data on one transmit queue
+could overtake older data on another queue. Driver drop and allocation-failure
+counters remained zero in the instrumented tests.
+
+This explains the observed retransmissions in that setup; it does not establish
+that every driver path is defect-free. The direct host control demonstrates
+near-wire-rate reception without the guest transmit path. No server tuning
+change was applied as part of that investigation. Browser speed tests and SMB
+file copies exercise additional layers and should not be interpreted as direct
+measurements of the driver's limit.

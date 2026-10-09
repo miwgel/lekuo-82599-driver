@@ -11,6 +11,7 @@ if path.name.startswith("lekuo-control-tests."):
 PY' EXIT
 
 flags=(-parse-as-library -swift-version 5 -strict-concurrency=complete -warnings-as-errors)
+python3 -m unittest discover -s scripts/tests -p 'test_release*.py'
 xcrun swiftc "${flags[@]}" Lekuo82599App/AdapterService.swift \
     scripts/tests/test_adapter_service.swift -o "$workspace/adapter-tests"
 "$workspace/adapter-tests"

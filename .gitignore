@@ -34,6 +34,10 @@ __pycache__/
 *.p12
 *.cer
 *.key
+*.p8
+*.pfx
+*.csr
+*.certSigningRequest
 *.pem
 *.dmg
 *.dmg.sha256
@@ -48,5 +52,7 @@ local/
 *.log
 .env
 .env.*
+*.keychain-db
+*.keychain
 DRIVERKIT_ENTITLEMENT_REQUEST.md
 FILE_TRANSFER_BENCHMARK.md

@@ -19,3 +19,7 @@ DRIVER_BUNDLE_IDENTIFIER = com.example.Lekuo82599Driver
 APP_PROVISIONING_PROFILE_SPECIFIER =
 DRIVER_PROVISIONING_PROFILE_SPECIFIER =
 LEKUO_BUILD_KIND = Development Preview
+
+// Prevent compiler-generated source references from exposing local home paths.
+OTHER_SWIFT_FLAGS = $(inherited) -file-prefix-map "$(SRCROOT)=/src"
+OTHER_CPLUSPLUSFLAGS = $(inherited) "-ffile-prefix-map=$(SRCROOT)=/src"

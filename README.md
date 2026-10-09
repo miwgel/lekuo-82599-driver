@@ -1,12 +1,41 @@
-# Experimental Lekuo DTB3F21 DriverKit driver
+<p align="center"><img src="Brand/icon.svg" width="112" height="112" alt="Lekuo Control icon"></p>
+
+# Lekuo Control
+
+**10 GbE for macOS.** An open-source driver and native control app for the
+Lekuo DTB3F21, with jumbo packets, live traffic counters, and recoverable
+packet-size settings.
+
+[Getting started](#getting-started) · [Hardware](#hardware-match) ·
+[Build from source](#build-prerequisites) · [Benchmarks](BENCHMARKS.md) ·
+[Release signing](DISTRIBUTION.md)
 
 This repository contains an experimental macOS DriverKit network driver for
 the Intel 82599ES controller used by the Lekuo DTB3F21 Thunderbolt/USB4 to
 SFP+ adapter.
 
+This is an independent community project, unaffiliated with Lekuo, Intel, or
+Apple. The hardware vendor's name identifies the adapter we have tested.
+
 The implementation began from Apple's NetworkingDriverKit sample and uses
 82599 descriptor definitions adapted from the BSD-licensed ixy project. See
 `LICENSE.txt` and `IXY-LICENSE.txt`.
+
+## Getting started
+
+Use a **signed and notarized** DMG from the repository's Releases page when
+one is available. Source archives and development previews are not installers.
+
+1. Copy **Lekuo Control** to Applications and open it.
+2. Click **Install Driver**, then approve the driver in System Settings when
+   macOS asks. The app shows whether approval or a restart is still needed.
+3. Confirm that the adapter appears and reports an active Ethernet link.
+4. Leave packets at **Standard (1500)** unless the complete network path
+   supports jumbo packets. A jumbo trial must pass the app's peer check before
+   you can keep it; unconfirmed trials restore the previous setting.
+
+The current build targets **macOS 27** and is tested on Apple silicon. Keep a
+second network connection available when installing or removing a driver.
 
 ## Status
 
@@ -46,9 +75,10 @@ bus address.
   control.
 
 The checked-in identifiers use the placeholder namespace `com.example`.
-Replace both app and dext bundle identifiers, update
-`DriverLoadingViewModel.swift`, select your development team, and choose your
-own provisioning profiles before building. Do not commit certificates,
+Set both bundle identifiers in `Configuration/SampleCode.xcconfig`, update the
+driver product filename in the Xcode project to match, select your development
+team, and choose your own provisioning profiles before building. The app reads
+its driver identifier from its generated metadata. Do not commit certificates,
 profiles, private keys, team IDs, or signed application bundles.
 
 Open `Lekuo82599.xcodeproj`, select the `Lekuo82599App` scheme, and build for
@@ -96,6 +126,12 @@ path with a non-destructive packet test before relying on it.
 Sanitized benchmark summaries are in [BENCHMARKS.md](BENCHMARKS.md). Raw packet
 captures, addresses, device serials, hostnames, storage inventories, signing
 records, and machine-specific automation are deliberately excluded.
+
+The most recent receive-path investigation found substantial packet reordering
+in the test server's virtual-machine-to-physical-NIC transmit queues. A direct
+host control reached 9.88 Gb/s with two retransmissions in a three-second test.
+This is evidence about that test setup, not a guarantee for every adapter,
+network, or NAS. See [BENCHMARKS.md](BENCHMARKS.md).
 
 ## Safety and reporting
 

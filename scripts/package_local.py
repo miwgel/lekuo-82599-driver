@@ -19,7 +19,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 APP_ENTITLEMENT = "com.apple.developer.system-extension.install"
@@ -271,10 +271,10 @@ def install_notes(verified: VerifiedApp, version: str, development: bool) -> str
         "Signed development artifacts contain developer certificate identity and\n"
         "registered hardware identifiers in embedded profiles. Keep this preview private.\n"
         if development else
-        "LOCAL DISTRIBUTION CANDIDATE\n"
-        "The app, driver, and helper have Developer ID signatures. This newly created\n"
-        "disk image has not been signed, notarized, or assessed by Gatekeeper.\n"
-        "Complete the distribution notarization process before public distribution.\n"
+        "DEVELOPER ID BUILD\n"
+        "The app, driver, and helper have Developer ID signatures. Official release\n"
+        "downloads also complete Apple notarization and Gatekeeper verification.\n"
+        "A locally packaged candidate must complete those checks before distribution.\n"
     )
     gatekeeper_note = (
         "\nIf Gatekeeper blocks this development preview, first verify that you trust\n"
@@ -326,6 +326,10 @@ def verify_image(image: pathlib.Path, mountpoint: pathlib.Path, verified: Verifi
             raise PackageError("The Applications shortcut is invalid.")
         if (mountpoint / "INSTALL.txt").read_text(encoding="utf-8") != notes:
             raise PackageError("The mounted installation notes are invalid.")
+        source_root = pathlib.Path(__file__).resolve().parents[1]
+        for name in ("LICENSE.txt", "IXY-LICENSE.txt"):
+            if (mountpoint / "Licenses" / name).read_bytes() != (source_root / name).read_bytes():
+                raise PackageError("The mounted license notices are invalid.")
     finally:
         if attached or os.path.ismount(mountpoint):
             try:
@@ -394,15 +398,21 @@ def main() -> int:
         if destination.exists() or destination.with_name(filename + ".sha256").exists():
             raise PackageError("A package or checksum already exists; choose a new output directory.")
         verified = verify_app(app, args.version, args.development)
+        verified = replace(verified, app_name="Lekuo Control.app")
         notes = install_notes(verified, args.version, args.development)
         with tempfile.TemporaryDirectory(prefix="lekuo-local-package-") as temporary:
             root = pathlib.Path(temporary)
             staging = root / "staging"
             staging.mkdir()
-            run(["/usr/bin/ditto", str(app), str(staging / app.name)], "App staging")
+            run(["/usr/bin/ditto", str(app), str(staging / verified.app_name)], "App staging")
+            licenses = staging / "Licenses"
+            licenses.mkdir()
+            source_root = pathlib.Path(__file__).resolve().parents[1]
+            for license_name in ("LICENSE.txt", "IXY-LICENSE.txt"):
+                (licenses / license_name).write_bytes((source_root / license_name).read_bytes())
             (staging / "Applications").symlink_to("/Applications")
             (staging / "INSTALL.txt").write_text(notes, encoding="utf-8")
-            verify_app(staging / app.name, args.version, args.development)
+            verify_app(staging / verified.app_name, args.version, args.development)
             image = root / filename
             run(
                 ["/usr/bin/hdiutil", "create", "-volname", f"Lekuo Control {args.version}{suffix}", "-srcfolder", str(staging), "-format", "UDZO", str(image)],

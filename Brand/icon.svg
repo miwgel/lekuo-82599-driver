@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Lekuo Control paired transmission lanes">
+  <rect x="64" y="64" width="896" height="896" rx="202" fill="#0b1b25"/>
+  <g fill="none" stroke-width="78" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M326 294V658H682" stroke="#63e8c4"/>
+    <path d="M464 294V520H682" stroke="#e3faf5"/>
+  </g>
+  <g fill="#63e8c4" opacity=".45">
+    <rect x="302" y="760" width="48" height="68" rx="24"/>
+    <rect x="440" y="760" width="48" height="68" rx="24"/>
+  </g>
+</svg>

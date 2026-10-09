@@ -80,13 +80,14 @@ struct DriverLoadingView: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            Image(systemName: "network")
-                .font(.system(size: 30, weight: .medium))
-                .foregroundStyle(.tint)
+            Image(nsImage: NSApplication.shared.applicationIconImage)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: 56, height: 56)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
-                Text("Lekuo Control").font(.title2.weight(.semibold))
-                Text("Intel 82599 · SFP+ Ethernet").font(.subheadline).foregroundStyle(.secondary)
+                Text("Lekuo Control").font(.system(size: 24, weight: .semibold, design: .rounded))
+                Text("10 GbE for macOS").font(.subheadline).foregroundStyle(.secondary)
             }
             Spacer()
             Text(viewModel.buildKindLabel)

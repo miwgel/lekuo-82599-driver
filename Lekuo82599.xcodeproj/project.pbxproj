@@ -60,7 +60,7 @@
 		C449276025E7278900D24755 /* Lekuo82599.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Lekuo82599.plist; sourceTree = "<group>"; };
 		C449276225E728AB00D24755 /* Lekuo82599.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = Lekuo82599.entitlements; sourceTree = "<group>"; };
 		C4ABE0A5262E966400651D43 /* LICENSE.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
-		C4C566A9262A7D8200C9E16B /* Lekuo82599App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Lekuo82599App.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C4C566A9262A7D8200C9E16B /* Lekuo Control.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Lekuo Control.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C4C566E4262A809000C9E16B /* DriverLoadingView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DriverLoadingView.swift; path = Lekuo82599App/DriverLoadingView.swift; sourceTree = "<group>"; };
 		C4C566E5262A809000C9E16B /* Lekuo82599App.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = Lekuo82599App.entitlements; path = Lekuo82599App/Lekuo82599App.entitlements; sourceTree = "<group>"; };
 		C4C566E6262A809000C9E16B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = Lekuo82599App/Assets.xcassets; sourceTree = "<group>"; };
@@ -131,7 +131,7 @@
 			isa = PBXGroup;
 			children = (
 				C449272525E6F3A400D24755 /* com.example.apple-samplecode.Lekuo82599.dext */,
-				C4C566A9262A7D8200C9E16B /* Lekuo82599App.app */,
+				C4C566A9262A7D8200C9E16B /* Lekuo Control.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -241,7 +241,7 @@
 			);
 			name = Lekuo82599App;
 			productName = "Lekuo82599App (macOS)";
-			productReference = C4C566A9262A7D8200C9E16B /* Lekuo82599App.app */;
+			productReference = C4C566A9262A7D8200C9E16B /* Lekuo Control.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -408,7 +408,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Apple Inc. All rights reserved.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 Mick. Includes Apple and ixy code; see licenses.";
 				INFOPLIST_OUTPUT_FORMAT = "same-as-input";
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -467,7 +467,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Apple Inc. All rights reserved.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 Mick. Includes Apple and ixy code; see licenses.";
 				INFOPLIST_OUTPUT_FORMAT = "same-as-input";
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -555,7 +555,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_IDENTIFIER)";
-				PRODUCT_NAME = Lekuo82599App;
+				PRODUCT_NAME = "Lekuo Control";
 				PROVISIONING_PROFILE_SPECIFIER = "$(APP_PROVISIONING_PROFILE_SPECIFIER)";
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -590,7 +590,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_IDENTIFIER)";
-				PRODUCT_NAME = Lekuo82599App;
+				PRODUCT_NAME = "Lekuo Control";
 				PROVISIONING_PROFILE_SPECIFIER = "$(APP_PROVISIONING_PROFILE_SPECIFIER)";
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
