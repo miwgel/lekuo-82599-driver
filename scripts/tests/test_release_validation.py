@@ -36,6 +36,16 @@ class DistributionProfiles(unittest.TestCase):
     def test_distribution_profile(self):
         self.validate(self.profile)
 
+    def test_apple_vendor_mask_grant(self):
+        p = copy.deepcopy(self.profile)
+        key = "com.apple.developer.driverkit.transport.pci"
+        p["Entitlements"][key] = [{"IOPCIPrimaryMatch": "0x00008086&0x0000FFFF"}]
+        self.validate(p)
+        for match in ("0x00008087&0x0000FFFF", "0x00008086&invalid", "0x10fa8086"):
+            p["Entitlements"][key] = [{"IOPCIPrimaryMatch": match}]
+            with self.assertRaises(ReleaseError):
+                self.validate(p)
+
     def test_reject_development_expired_wrong_team_or_certificate(self):
         changes = [
             {"ProvisionsAllDevices": False},

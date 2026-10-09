@@ -19,6 +19,16 @@ a GitHub Release.
 - An App Store Connect **team API key** authorized for Apple's notary service,
   with its key ID and issuer ID.
 
+Apple may grant PCI access with an `IOPCIPrimaryMatch` value/mask rather than
+an exact device ID. The release validator checks that the grant covers the
+supported controller; the driver personality remains limited to the tested
+hardware.
+
+If macOS rejects an OpenSSL-generated PKCS#12 bundle with a MAC verification
+error, verify the password first, then export with macOS-compatible PKCS#12
+algorithms. Keep a strong random export password and test importing into a
+temporary keychain before adding the bundle to CI.
+
 The app, driver, helper, and profiles must belong to the same Apple team. Keep
 keys, certificates, profiles, and account configuration outside Git. See
 [PRIVACY.md](PRIVACY.md) for identity information inherently visible in Apple

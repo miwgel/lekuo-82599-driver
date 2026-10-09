@@ -36,6 +36,30 @@ class ReleaseError(Exception):
     pass
 
 
+def pci_grant_allows_device(grant, device=0x10FB8086):
+    """Understand Apple's IOPCIPrimaryMatch value/mask distribution grants."""
+    if grant is True:
+        return True
+    if not isinstance(grant, list):
+        return False
+    for entry in grant:
+        if not isinstance(entry, dict):
+            continue
+        match = entry.get("IOPCIPrimaryMatch")
+        if not isinstance(match, str):
+            continue
+        if match == "*":
+            return True
+        for expression in match.split():
+            parts = re.fullmatch(r"0x([0-9a-fA-F]{1,8})(?:&0x([0-9a-fA-F]{1,8}))?", expression)
+            if parts:
+                value = int(parts[1], 16)
+                mask = int(parts[2], 16) if parts[2] else 0xFFFFFFFF
+                if device & mask == value:
+                    return True
+    return False
+
+
 def run(command, stage, timeout=120):
     try:
         p = subprocess.run([str(x) for x in command], stdout=subprocess.PIPE,
@@ -73,9 +97,7 @@ def validate_profile(profile, bundle, team, kind, certificate_sha1):
             if e.get(key) is not True:
                 raise ReleaseError("Driver profile lacks DriverKit networking distribution permission")
         pci = e.get("com.apple.developer.driverkit.transport.pci")
-        if pci is not True and not (isinstance(pci, list) and any(
-            isinstance(x, dict) and x.get("IOPCIPrimaryMatch") in ("*", "0x10fb8086") for x in pci
-        )):
+        if not pci_grant_allows_device(pci):
             raise ReleaseError("Driver profile does not authorize the supported PCI device")
 
 
