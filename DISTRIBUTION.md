@@ -113,6 +113,10 @@ SHA-256 checksum, and `release.json`. Its publishing job alone has repository
 write access and receives no Apple secrets. Keep the original tag immutable;
 use a later date for a replacement release.
 
+The current workflow marks releases as experimental prereleases and includes
+installation and hardware requirements in their notes. Remove that designation
+only after the driver's validation and support policy justify a stable release.
+
 ## Local packaging
 
 `scripts/package_local.py` can verify and package an existing signed app. It

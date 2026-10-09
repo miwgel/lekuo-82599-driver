@@ -112,8 +112,29 @@ jobs:
           set -euo pipefail
           cd artifacts
           sha256sum -c "Lekuo-Control-$RELEASE_VERSION.dmg.sha256"
+          cat > release-notes.md <<'NOTES'
+          ## Experimental release
+
+          Lekuo Control includes the Intel 82599 DriverKit driver and native control app.
+          The app and disk image are Developer ID signed, notarized by Apple, and stapled.
+
+          **Requirements:** macOS 27 or later on Apple silicon and compatible hardware.
+          Testing has covered the Lekuo DTB3F21; this is not a production-support guarantee.
+
+          Download the DMG, copy **Lekuo Control.app** to Applications, open it, and choose
+          **Install Driver**. Complete the macOS approval or restart shown by the app.
+          Keep an alternate network connection available during driver activation.
+
+          Jumbo packets require a compatible network path. Packet-size settings use an
+          automatic rollback trial. See the repository README for hardware matching,
+          benchmarks, limitations, and removal instructions.
+
+          The SHA-256 file verifies download integrity; `release.json` identifies the
+          source commit and build. Source archives are not installers.
+          NOTES
           gh release create "$RELEASE_VERSION" \
             "Lekuo-Control-$RELEASE_VERSION.dmg" \
             "Lekuo-Control-$RELEASE_VERSION.dmg.sha256" release.json \
             --repo "$GITHUB_REPOSITORY" --verify-tag \
-            --title "Lekuo Control $RELEASE_VERSION" --generate-notes
+            --title "Lekuo Control $RELEASE_VERSION" --prerelease \
+            --notes-file release-notes.md --generate-notes
