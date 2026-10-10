@@ -13,6 +13,7 @@ final class DriverLoadingViewModel: NSObject, ObservableObject {
     @Published var selectedAdapterID: String? {
         didSet {
             guard selectedAdapterID != oldValue else { return }
+            mtuSaveMessage = nil
             previousRateSample = nil
             receiveRateBitsPerSecond = nil
             transmitRateBitsPerSecond = nil
@@ -42,6 +43,7 @@ final class DriverLoadingViewModel: NSObject, ObservableObject {
         }
     }
     @Published private(set) var probeSummary: String?
+    @Published private(set) var mtuSaveMessage: String?
     @Published private(set) var isProbing = false
     @Published private(set) var isApplying = false
     @Published private(set) var rollbackSecondsRemaining: Int?
@@ -201,23 +203,35 @@ final class DriverLoadingViewModel: NSObject, ObservableObject {
             lastError = "Choose a different packet size within the adapter's supported range."
             return
         }
-        let peer = peerAddress.trimmingCharacters(in: .whitespacesAndNewlines)
-        if mtu > adapter.mtu && AdapterService.literalPeer(peer, interface: adapter.id) == nil {
-            lastError = "Enter a literal IPv4 or IPv6 receiver address before testing a larger packet size."
-            return
-        }
-        lastError = nil; verifiedProbe = nil; probeSummary = nil
+        lastError = nil; verifiedProbe = nil; probeSummary = nil; mtuSaveMessage = nil
         configurationOperationInProgress = true; updateApplyingState()
         mutationTask = Task { [weak self] in
             guard let self else { return }
             defer { self.finishConfigurationOperation() }
             do {
-                try await self.mtuConfiguration.applyTemporary(interface: adapter.id, mtu: mtu, driverBundleIdentifier: identifier)
+                try await self.mtuConfiguration.applyAndSave(interface: adapter.id, mtu: mtu, driverBundleIdentifier: identifier)
                 await self.readAdapters()
-                guard !Task.isCancelled else { self.mtuConfiguration.stop(); return }
-                if !peer.isEmpty { await self.runProbe(interface: adapter.id, mtu: mtu, peer: peer) }
-            } catch { self.lastError = error.localizedDescription }
+                guard !Task.isCancelled else { return }
+                guard self.selectedAdapter?.id == adapter.id, self.selectedAdapter?.mtu == mtu else {
+                    throw MTUControlError.changedDevice
+                }
+                self.mtuSaveMessage = "Packet size saved: \(mtu) bytes."
+            } catch {
+                self.lastError = error.localizedDescription
+                await self.readAdapters()
+                if let current = self.selectedAdapter {
+                    self.selectedMTU = current.mtu
+                    self.customMTUText = String(current.mtu)
+                }
+            }
         }
+    }
+
+    func selectPresetMTU(_ mtu: Int) {
+        guard mtu == 1500 || mtu == 9000, canConfigureSelectedAdapter,
+              !isApplying, !isProbing, rollbackSecondsRemaining == nil else { return }
+        selectedMTU = mtu
+        if selectedAdapter?.mtu != mtu { applyMTU() }
     }
 
     func keepMTU() {
@@ -323,6 +337,7 @@ final class DriverLoadingViewModel: NSObject, ObservableObject {
             if !adapters.contains(where: { $0.id == selectedAdapterID }) { selectedAdapterID = adapters.first?.id }
             if let current = selectedAdapter {
                 if previous?.id != current.id || previous?.mtu != current.mtu {
+                    mtuSaveMessage = nil
                     selectedMTU = current.mtu; customMTUText = String(current.mtu)
                     if let verifiedProbe, verifiedProbe.mtu != current.mtu {
                         self.verifiedProbe = nil

@@ -32,6 +32,8 @@ struct MTUFixtureTests {
         try rejects { _ = try MTUWatchdogCommand.decode(Data(#"{"command":"keep","verifiedMTU":9000,"sudo":true}"#.utf8)) }
         try rejects { _ = try MTUWatchdogCommand.decode(Data(#"{"command":"keep","verifiedMTU":16000}"#.utf8)) }
         try rejects { _ = try MTUWatchdogCommand.decode(Data(#"{"command":"anything"}"#.utf8)) }
+        let directSave = try MTUWatchdogCommand.decode(Data(#"{"command":"save"}"#.utf8))
+        precondition(directSave.command == .save && directSave.verifiedMTU == nil)
 
         var enlargement = MTUTrialDecision(originalMTU: 1500, requestedMTU: 9000)
         try rejects { try enlargement.authorizeKeep(claimedVerifiedMTU: nil, nowTicks: 0, deadlineTicks: 45) }

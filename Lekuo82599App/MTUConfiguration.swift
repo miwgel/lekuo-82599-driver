@@ -32,6 +32,29 @@ final class MTUConfiguration: ObservableObject {
     private var monitorTask: Task<Void, Never>?
     private var countdownTask: Task<Void, Never>?
     private var finishContinuation: CheckedContinuation<Void, Error>?
+    private var expectedFinishEvent: MTUWatchdogReply.Event?
+
+    /// Save an explicitly selected local MTU. The helper can still restore the
+    /// original settings if authorization, application, or acknowledgement fails.
+    func applyAndSave(interface: String, mtu: Int, driverBundleIdentifier: String) async throws {
+        try await applyTemporary(interface: interface, mtu: mtu, driverBundleIdentifier: driverBundleIdentifier)
+        do {
+            guard !Task.isCancelled, let connection, let trialDeadlineTicks,
+                  MTUTrialClock.nowTicks < trialDeadlineTicks else { throw MTUControlError.expired }
+            guard try validateSnapshot(interface: interface, driver: driverBundleIdentifier) == mtu else {
+                throw MTUControlError.changedDevice
+            }
+            isApplying = true
+            try await waitForFinish(expected: .kept) {
+                try connection.send(.init(command: .save, verifiedMTU: nil))
+            }
+        } catch {
+            connection?.requestRollbackByClosingInput()
+            isApplying = false
+            lastError = error.localizedDescription
+            throw error
+        }
+    }
 
     func applyTemporary(interface: String, mtu: Int, driverBundleIdentifier: String) async throws {
         guard !isApplying, connection == nil else { throw MTUControlError.busy }
@@ -110,7 +133,7 @@ final class MTUConfiguration: ObservableObject {
             try decision.authorizeKeep(claimedVerifiedMTU: hasVerifiedProbe ? decision.requestedMTU : nil,
                                        nowTicks: MTUTrialClock.nowTicks, deadlineTicks: trialDeadlineTicks)
             isApplying = true
-            try await waitForFinish {
+            try await waitForFinish(expected: .kept) {
                 try connection.send(.init(command: .keep, verifiedMTU: hasVerifiedProbe ? decision.requestedMTU : nil))
             }
         } catch {
@@ -129,7 +152,7 @@ final class MTUConfiguration: ObservableObject {
         }
         isApplying = true
         do {
-            try await waitForFinish { try connection.send(.init(command: .revert, verifiedMTU: nil)) }
+            try await waitForFinish(expected: .reverted) { try connection.send(.init(command: .revert, verifiedMTU: nil)) }
         } catch {
             isApplying = false
             lastError = error.localizedDescription
@@ -163,12 +186,14 @@ final class MTUConfiguration: ObservableObject {
         }
     }
 
-    private func waitForFinish(_ send: () throws -> Void) async throws {
+    private func waitForFinish(expected: MTUWatchdogReply.Event, _ send: () throws -> Void) async throws {
         try await withCheckedThrowingContinuation { continuation in
             finishContinuation = continuation
+            expectedFinishEvent = expected
             do { try send() }
             catch {
                 finishContinuation = nil
+                expectedFinishEvent = nil
                 connection?.requestRollbackByClosingInput()
                 continuation.resume(throwing: error)
             }
@@ -191,12 +216,20 @@ final class MTUConfiguration: ObservableObject {
         isApplying = false
         let continuation = finishContinuation
         finishContinuation = nil
+        let expected = expectedFinishEvent
+        expectedFinishEvent = nil
         if reply.event == .error {
             let error = MTUControlError.unavailable(reply.message ?? "The packet-size helper stopped unexpectedly. Check the adapter's current settings.")
             lastError = error.localizedDescription
             continuation?.resume(throwing: error)
         } else if reply.event == .kept || reply.event == .reverted {
-            continuation?.resume()
+            if let expected, expected != reply.event {
+                let error = MTUControlError.unavailable("The packet size was not saved. Check the adapter's current setting and try again.")
+                lastError = error.localizedDescription
+                continuation?.resume(throwing: error)
+            } else {
+                continuation?.resume()
+            }
         } else {
             let error = MTUControlError.invalidRequest
             lastError = error.localizedDescription

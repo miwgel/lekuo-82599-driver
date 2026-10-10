@@ -53,7 +53,7 @@ struct MTUWatchdogRequest: Codable, Equatable {
 }
 
 struct MTUWatchdogCommand: Codable {
-    enum Action: String, Codable { case keep, revert }
+    enum Action: String, Codable { case keep, save, revert }
     let command: Action
     let verifiedMTU: Int?
 

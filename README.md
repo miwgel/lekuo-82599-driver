@@ -31,8 +31,9 @@ one is available. Source archives and development previews are not installers.
    macOS asks. The app shows whether approval or a restart is still needed.
 3. Confirm that the adapter appears and reports an active Ethernet link.
 4. Leave packets at **Standard (1500)** unless the complete network path
-   supports jumbo packets. A jumbo trial must pass the app's peer check before
-   you can keep it; unconfirmed trials restore the previous setting.
+   supports jumbo packets. Selecting **Jumbo · 9000** applies and saves that
+   local setting after macOS authorization. The receiver test in Diagnostics
+   is optional; it does not gate configuration.
 
 The current build targets **macOS 27** and is tested on Apple silicon. Keep a
 second network connection available when installing or removing a driver.
@@ -90,8 +91,11 @@ explicit approval in System Settings.
 The companion app provides native driver installation and removal, observed
 extension status, ownership-verified adapter discovery, live interface counters,
 and packet-size configuration. Standard (1500), jumbo (9000), and custom MTUs
-use a 45-second trial with an independently running rollback watchdog. A larger
-MTU requires a successful interface-bound peer test before it can be kept.
+are saved after macOS authorization and verification of the local interface.
+Selecting Standard or Jumbo applies immediately; Custom has an Apply button.
+An independent helper restores the original setting if an unfinished save
+fails. An optional interface-bound peer test is available in Diagnostics;
+changing the local MTU does not prove end-to-end jumbo support.
 
 Diagnostics are previewed before export and contain an allowlist of versions,
 packet sizes, link state, and counters. Addresses, serials, signing identifiers,

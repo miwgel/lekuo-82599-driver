@@ -35,9 +35,6 @@ struct DriverLoadingView: View {
                         if let error = viewModel.lastError, !error.isEmpty {
                             message(error, symbol: "exclamationmark.circle", color: .red)
                         }
-                        if let remaining = viewModel.rollbackSecondsRemaining {
-                            rollbackCard(remaining: remaining)
-                        }
                         switch page {
                         case .adapter:
                             adapterPage
@@ -232,20 +229,24 @@ struct DriverLoadingView: View {
                         Text("Current MTU: \(adapter.mtu) bytes")
                             .font(.subheadline).foregroundStyle(.secondary)
                     }
-                    Picker("Packet size", selection: $packetMode) {
+                    // Only a user selection invokes apply. Synchronizing the
+                    // picker from observed MTU changes never writes settings.
+                    Picker("Packet size", selection: Binding(get: { packetMode }, set: { mode in
+                        packetMode = mode
+                        switch mode {
+                        case .standard: viewModel.selectPresetMTU(1500)
+                        case .jumbo: viewModel.selectPresetMTU(9000)
+                        case .custom:
+                            viewModel.customMTUText = String(viewModel.selectedAdapter?.mtu ?? 1500)
+                            updateCustomMTU()
+                        }
+                    })) {
                         Text("Standard · 1500").tag(PacketMode.standard)
                         Text("Jumbo · 9000").tag(PacketMode.jumbo)
                         Text("Custom").tag(PacketMode.custom)
                     }
                     .pickerStyle(.segmented)
-                    .disabled(settingsLocked)
-                    .onChange(of: packetMode) { _, mode in
-                        switch mode {
-                        case .standard: viewModel.selectedMTU = 1500
-                        case .jumbo: viewModel.selectedMTU = 9000
-                        case .custom: updateCustomMTU()
-                        }
-                    }
+                    .disabled(settingsLocked || viewModel.isProbing || !viewModel.canConfigureSelectedAdapter)
                     if packetMode == .custom {
                         HStack {
                             TextField("MTU in bytes", text: $viewModel.customMTUText)
@@ -264,19 +265,18 @@ struct DriverLoadingView: View {
                         .font(.subheadline).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Divider()
-                    Label("macOS will request administrator authorization to change the packet size.", systemImage: "lock")
+                    Label("Selecting Standard or Jumbo applies and saves that packet size. macOS may request administrator authorization.", systemImage: "lock")
                         .font(.caption).foregroundStyle(.secondary)
-                    if requiresPeerForEnlargement {
-                        Label("Enter your local receiver’s IP address below before applying a larger packet size. The connection test starts automatically, and must succeed before you keep the change.", systemImage: "info.circle")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
                     HStack {
-                        Button(viewModel.isApplying ? "Applying…" : "Apply Temporarily") { viewModel.applyMTU() }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(!canApplyMTU)
-                        if viewModel.isApplying { ProgressView().controlSize(.small) }
+                        if packetMode == .custom {
+                            Button("Apply Packet Size") { viewModel.applyMTU() }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(!canApplyMTU)
+                        }
+                        if viewModel.isApplying {
+                            ProgressView().controlSize(.small)
+                            Text("Saving packet size…").font(.subheadline)
+                        }
                         Spacer()
                         Button("Restore Standard MTU") {
                             packetMode = .standard
@@ -284,7 +284,10 @@ struct DriverLoadingView: View {
                         }
                         .disabled(!viewModel.canConfigureSelectedAdapter || settingsLocked || viewModel.isProbing || viewModel.selectedAdapter?.mtu == 1500)
                     }
-                    Text("Changes have a 45-second trial. Keep the setting after checking the connection, or it will roll back automatically.")
+                    if let saved = viewModel.mtuSaveMessage, !viewModel.isApplying {
+                        Label(saved, systemImage: "checkmark.circle").font(.subheadline)
+                    }
+                    Text("You can optionally test the network path in Diagnostics. A receiver address is not required to change this adapter’s packet size.")
                         .font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     if !viewModel.canConfigureSelectedAdapter {
@@ -293,7 +296,6 @@ struct DriverLoadingView: View {
                         message("Choose a packet size between \(minimumMTU) and \(maximumMTU) bytes.", symbol: "exclamationmark.circle", color: .orange)
                     }
                 }
-                jumboTestCard
             }
         }
     }
@@ -329,7 +331,7 @@ struct DriverLoadingView: View {
     }
 
     private var jumboTestCard: some View {
-        ControlCard("Test packet compatibility", subtitle: "Choose a receiver on your local network that supports the selected packet size.", symbol: "checkmark.shield") {
+        ControlCard("Test packet compatibility", subtitle: "Optional: test a local receiver at the adapter’s current packet size.", symbol: "checkmark.shield") {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Local peer IP address").font(.subheadline.weight(.medium))
@@ -357,33 +359,6 @@ struct DriverLoadingView: View {
                     .accessibilityLabel("Connection test result: \(summary)")
             }
         }
-    }
-
-    private func rollbackCard(remaining: Int) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Automatic rollback in \(max(remaining, 0)) seconds", systemImage: "timer")
-                .font(.headline)
-            ProgressView(value: min(max(Double(remaining), 0), 45), total: 45)
-                .tint(.orange)
-                .accessibilityLabel("Seconds remaining before rollback")
-                .accessibilityValue("\(max(remaining, 0)) seconds")
-            Text("The previous packet size will be restored unless you keep this change.")
-                .font(.subheadline)
-            if !viewModel.canKeepSettings {
-                Text("A successful test to your local peer is required before keeping a larger MTU.")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            HStack {
-                Button("Keep Settings") { viewModel.keepMTU() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!viewModel.canKeepSettings || viewModel.isApplying)
-                Button("Revert Now") { viewModel.revertMTU() }
-                    .disabled(viewModel.isApplying)
-            }
-        }
-        .padding(18)
-        .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.orange.opacity(0.3), lineWidth: 1))
     }
 
     private var adapterSelector: some View {
@@ -467,14 +442,9 @@ struct DriverLoadingView: View {
         guard let mtu else { return false }
         return (minimumMTU...maximumMTU).contains(mtu)
     }
-    private var requiresPeerForEnlargement: Bool {
-        guard let adapter = viewModel.selectedAdapter else { return false }
-        return viewModel.selectedMTU > adapter.mtu
-    }
     private var canApplyMTU: Bool {
         viewModel.canConfigureSelectedAdapter && mtuIsValid && !settingsLocked && !viewModel.isProbing
             && viewModel.selectedMTU != viewModel.selectedAdapter?.mtu
-            && (!requiresPeerForEnlargement || !viewModel.peerAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
     private var canTest: Bool {
         viewModel.canConfigureSelectedAdapter && !viewModel.isProbing && !viewModel.isApplying

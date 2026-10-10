@@ -175,6 +175,13 @@ private final class MTUPreferencesTransaction {
     func keep(verifiedMTU: Int?, deadlineTicks: UInt64) throws {
         try MTUTrialDecision(originalMTU: originalActiveMTU, requestedMTU: request.requestedMTU)
             .authorizeKeep(claimedVerifiedMTU: verifiedMTU, nowTicks: MTUTrialClock.nowTicks, deadlineTicks: deadlineTicks)
+        try save(deadlineTicks: deadlineTicks)
+    }
+
+    // An explicit local setting does not assert anything about a remote peer.
+    // Preserve authorization, device ownership, concurrency and deadline checks.
+    func save(deadlineTicks: UInt64) throws {
+        guard MTUTrialClock.nowTicks < deadlineTicks else { throw MTUControlError.expired }
         try verifySavedAndActive(expectedActive: request.requestedMTU)
         try updatePreference(request.requestedMTU, apply: true)
         try waitForActiveMTU(request.requestedMTU)
@@ -413,6 +420,9 @@ private struct LekuoMTUWatchdog {
             let command = try MTUWatchdogCommand.decode(commandData)
             guard MTUTrialClock.nowTicks < deadline else { throw MTUControlError.expired }
             switch command.command {
+            case .save:
+                try current.save(deadlineTicks: deadline)
+                MTUWatchdogIO.emit(.init(.kept))
             case .keep:
                 try current.keep(verifiedMTU: command.verifiedMTU, deadlineTicks: deadline)
                 MTUWatchdogIO.emit(.init(.kept))
