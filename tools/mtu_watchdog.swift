@@ -397,8 +397,9 @@ private struct LekuoMTUWatchdog {
             var externalForm = AuthorizationExternalForm()
             let data = try MTUWatchdogIO.readExact(MemoryLayout<AuthorizationExternalForm>.size, timeout: .seconds(10))
             _ = withUnsafeMutableBytes(of: &externalForm) { data.copyBytes(to: $0) }
-            guard AuthorizationCreateFromExternalForm(&externalForm, &authorization) == errAuthorizationSuccess,
-                  let authorization else { throw MTUControlError.authorization(errAuthorizationDenied) }
+            let importStatus = AuthorizationCreateFromExternalForm(&externalForm, &authorization)
+            guard importStatus == errAuthorizationSuccess,
+                  let authorization else { throw MTUControlError.authorization(importStatus) }
             let requestDeadline = MTUTrialClock.deadline(afterSeconds: 10)
             guard let requestData = try MTUWatchdogIO.readLine(limit: 1024, deadline: requestDeadline) else {
                 throw MTUControlError.invalidRequest

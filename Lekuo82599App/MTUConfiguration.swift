@@ -242,13 +242,17 @@ private final class MTUWatchdogConnection: @unchecked Sendable {
     private let process: Process
     private let input: FileHandle
     private let output: FileHandle
+    // The external form is a live handoff, not a standalone credential. Keep
+    // the exporting reference alive until the helper has completed its work.
+    private let authorization: AuthorizationRef
     private let writeLock = NSLock()
     private var inputClosed = false
 
-    private init(process: Process, input: FileHandle, output: FileHandle) {
+    private init(process: Process, input: FileHandle, output: FileHandle, authorization: AuthorizationRef) {
         self.process = process
         self.input = input
         self.output = output
+        self.authorization = authorization
     }
 
     static func start(_ request: MTUWatchdogRequest) throws -> MTUWatchdogConnection {
@@ -259,7 +263,8 @@ private final class MTUWatchdogConnection: @unchecked Sendable {
         guard createStatus == errAuthorizationSuccess, let authorization else {
             throw MTUControlError.authorization(createStatus)
         }
-        defer { AuthorizationFree(authorization, []) }
+        var authorizationTransferred = false
+        defer { if !authorizationTransferred { AuthorizationFree(authorization, []) } }
         let rightsStatus = "system.preferences.network".withCString { rightName in
             var item = AuthorizationItem(name: rightName, valueLength: 0, value: nil, flags: 0)
             return withUnsafeMutablePointer(to: &item) { pointer in
@@ -287,7 +292,9 @@ private final class MTUWatchdogConnection: @unchecked Sendable {
         DispatchQueue.global(qos: .utility).async { child.waitUntilExit() }
         try stdin.fileHandleForReading.close()
         try stdout.fileHandleForWriting.close()
-        let connection = MTUWatchdogConnection(process: child, input: stdin.fileHandleForWriting, output: stdout.fileHandleForReading)
+        let connection = MTUWatchdogConnection(process: child, input: stdin.fileHandleForWriting,
+                                             output: stdout.fileHandleForReading, authorization: authorization)
+        authorizationTransferred = true
         do {
             var data = withUnsafeBytes(of: externalForm) { Data($0) }
             data.append(try JSONEncoder().encode(request))
@@ -369,6 +376,7 @@ private final class MTUWatchdogConnection: @unchecked Sendable {
 
     deinit {
         requestRollbackByClosingInput()
+        AuthorizationFree(authorization, [])
         try? output.close()
     }
 }

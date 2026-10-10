@@ -19,7 +19,7 @@ enum MTUControlError: LocalizedError {
         case .invalidRequest: return "Choose an Ethernet interface and an MTU between 1280 and 9000."
         case .busy: return "Finish or revert the current packet-size test first."
         case .unavailable(let message): return message
-        case .authorization: return "macOS did not authorize changing the network settings."
+        case .authorization(let status): return "Network-settings authorization failed (status \(status)). Try selecting the packet size again."
         case .peerNotVerified: return "Test this packet size successfully with a peer before keeping it."
         case .changedDevice: return "The selected adapter disconnected or changed. Settings were not applied to another device."
         case .changedPreferences: return "Another network configuration change occurred. Lekuo Control stopped to avoid overwriting it."
