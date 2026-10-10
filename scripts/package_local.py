@@ -140,6 +140,14 @@ def require_driver_entitlements(entitlements: dict, label: str) -> None:
         raise PackageError(f"{label} lacks PCI access.")
 
 
+def require_matching_pci_grant(signed: dict, provisioned: dict) -> None:
+    # Static codesign and notarization can pass while taskgated rejects a
+    # device-specific expression nested within Apple's vendor-mask grant.
+    key = "com.apple.developer.driverkit.transport.pci"
+    if key not in signed or signed[key] != provisioned.get(key):
+        raise PackageError("The signed PCI entitlement must exactly match the distribution profile grant.")
+
+
 def profile_devices(profile: dict, development: bool, label: str) -> set[str]:
     if not development:
         if profile.get("ProvisionsAllDevices") is not True:
@@ -248,6 +256,8 @@ def verify_app(app: pathlib.Path, version: str, development: bool) -> VerifiedAp
                 raise PackageError("The app profile lacks system-extension installation access.")
         else:
             require_driver_entitlements(entitlements, "The driver profile")
+            if not development:
+                require_matching_pci_grant(driver_entitlements, entitlements)
         device_sets.append(profile_devices(profile, development, label))
     common_count = None
     if development:

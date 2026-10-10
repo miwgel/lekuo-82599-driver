@@ -128,6 +128,24 @@ def configure_source(destination, app_id, driver_id):
     project.write_text(text.replace(old, f'path = "{driver_id}.dext";'))
 
 
+def configure_pci_entitlement(source, profile):
+    """Use Apple's literal PCI grant, not a mathematically narrower match.
+
+    AMFI compares the signed entitlement against the provisioning profile;
+    an exact device expression inside a granted vendor mask can still fail.
+    Hardware selection remains restricted by the driver's PCI personality
+    and its function check. Only this entitlement is copied from the profile.
+    """
+    key = "com.apple.developer.driverkit.transport.pci"
+    grant = profile.get("Entitlements", {}).get(key)
+    if not pci_grant_allows_device(grant):
+        raise ReleaseError("Driver profile does not authorize the supported PCI device")
+    path = source / "Lekuo82599/Lekuo82599.entitlements"
+    entitlements = plistlib.loads(path.read_bytes())
+    entitlements[key] = grant
+    path.write_bytes(plistlib.dumps(entitlements))
+
+
 def notarize(path, key, env):
     response = run(["xcrun", "notarytool", "submit", path, "--key", key,
                     "--key-id", env["NOTARY_KEY_ID"], "--issuer", env["NOTARY_ISSUER_ID"],
@@ -190,12 +208,15 @@ def build(version, build_number, output):
                 raise ReleaseError("Expected exactly one valid Developer ID Application identity for this team")
             identity = matches[0]
             profiles = {}
+            driver_profile = None
             profile_dir = Path.home() / "Library/Developer/Xcode/UserData/Provisioning Profiles"
             profile_dir.mkdir(parents=True, exist_ok=True)
             for kind, secret, bundle in (("App", "APP_PROVISIONING_PROFILE_BASE64", env["APP_BUNDLE_ID"]),
                                          ("Driver", "DRIVER_PROVISIONING_PROFILE_BASE64", env["DRIVER_BUNDLE_ID"])):
                 profile = plistlib.loads(run(["security", "cms", "-D", "-i", assets[secret]], "Decode distribution profile"))
                 validate_profile(profile, bundle, env["APPLE_TEAM_ID"], kind, identity)
+                if kind == "Driver":
+                    driver_profile = profile
                 uuid = profile.get("UUID", "")
                 if not re.fullmatch(r"[A-Fa-f0-9-]{36}", uuid):
                     raise ReleaseError("Invalid provisioning profile identifier")
@@ -208,6 +229,7 @@ def build(version, build_number, output):
             source = work / "source"
             source.mkdir()
             configure_source(source, env["APP_BUNDLE_ID"], env["DRIVER_BUNDLE_ID"])
+            configure_pci_entitlement(source, driver_profile)
             print("Archiving app, driver, and rollback helper", flush=True)
             archive = work / "LekuoControl.xcarchive"
             run(["xcodebuild", "-project", source / "Lekuo82599.xcodeproj", "-scheme", "Lekuo82599App",

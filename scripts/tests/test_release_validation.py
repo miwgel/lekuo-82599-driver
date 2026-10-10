@@ -2,12 +2,15 @@
 import copy
 import datetime as dt
 import hashlib
+import plistlib
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from release import ReleaseError, validate_profile
+from release import ReleaseError, configure_pci_entitlement, validate_profile
+from package_local import PackageError, require_matching_pci_grant
 from check_public_source import findings
 
 
@@ -45,6 +48,35 @@ class DistributionProfiles(unittest.TestCase):
             p["Entitlements"][key] = [{"IOPCIPrimaryMatch": match}]
             with self.assertRaises(ReleaseError):
                 self.validate(p)
+
+    def test_runtime_rejects_narrower_signed_pci_expression(self):
+        key = "com.apple.developer.driverkit.transport.pci"
+        grant = [{"IOPCIPrimaryMatch": "0x00008086&0x0000FFFF"}]
+        with self.assertRaises(PackageError):
+            require_matching_pci_grant(self.profile["Entitlements"], {key: grant})
+        require_matching_pci_grant({key: grant}, {key: grant})
+        with self.assertRaises(PackageError):
+            require_matching_pci_grant({}, {})
+
+    def test_configure_only_pci_entitlement_from_profile(self):
+        key = "com.apple.developer.driverkit.transport.pci"
+        p = copy.deepcopy(self.profile)
+        p["Entitlements"][key] = [{"IOPCIPrimaryMatch": "0x00008086&0x0000FFFF"}]
+        original = {key: [{"IOPCIPrimaryMatch": "0x10fb8086"}],
+                    "com.apple.developer.driverkit": True,
+                    "com.apple.developer.driverkit.family.networking": True}
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp)
+            path = source / "Lekuo82599/Lekuo82599.entitlements"
+            path.parent.mkdir()
+            path.write_bytes(plistlib.dumps(original))
+            configure_pci_entitlement(source, p)
+            configured = plistlib.loads(path.read_bytes())
+            self.assertEqual(configured, {**original, key: p["Entitlements"][key]})
+            require_matching_pci_grant(configured, p["Entitlements"])
+            p["Entitlements"][key] = [{"IOPCIPrimaryMatch": "0x00008087&0x0000FFFF"}]
+            with self.assertRaises(ReleaseError):
+                configure_pci_entitlement(source, p)
 
     def test_reject_development_expired_wrong_team_or_certificate(self):
         changes = [

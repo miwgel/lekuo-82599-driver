@@ -21,8 +21,11 @@ a GitHub Release.
 
 Apple may grant PCI access with an `IOPCIPrimaryMatch` value/mask rather than
 an exact device ID. The release validator checks that the grant covers the
-supported controller; the driver personality remains limited to the tested
-hardware.
+supported controller, then copies that literal PCI entitlement into the
+temporary signing source. The signed entitlement must exactly match the
+profile grant. A mathematically narrower expression can pass codesign and
+notarization yet be rejected by AMFI when the driver starts. The driver
+personality and function check remain limited to the tested hardware.
 
 If macOS rejects an OpenSSL-generated PKCS#12 bundle with a MAC verification
 error, verify the password first, then export with macOS-compatible PKCS#12
@@ -91,6 +94,10 @@ Signing and notarization output is captured rather than printed because it
 can contain account identity. A failed stage reports its category and exit
 status. No unverified artifact is uploaded. A notarized build still needs real
 hardware testing; successful signing does not prove driver compatibility.
+In particular, `activated enabled` means the extension is registered and
+approved, not that its process started or claimed the controller. Confirm
+driver ownership in IORegistry and a visible managed adapter before claiming
+hardware validation.
 
 The build number is independent of the date version and increases with the
 workflow run number. It starts above existing development builds to preserve
